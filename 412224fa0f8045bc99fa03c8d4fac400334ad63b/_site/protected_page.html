@@ -1,0 +1,59 @@
+<div
+  class="jekyll-crypto"
+  data-salt="[15,153,72,13,152,175,48,198,111,6,131,130,67,207,170,234]"
+  data-iv="[184,254,126,74,67,64,242,106,149,106,39,120]"
+  data-iterations="20000"
+  data-auth-data="[110,4,199,78,121,167,72,210,108,105,79,186,139,110,226,1]">
+
+  <form>
+    <input type="password" name="password" autocomplete="off" required />
+    <input type="submit" />
+  </form>
+
+  <span class="ciphertext" style="word-wrap: break-word;display: none;">
+    [36,22,62,78,117,22,156,148,179,121,205,57,74,29,240,124,170,150,233,60,189,128,68,120,48,26,219,54,83,72,208,36,50,96,1,74,35,142,248,11,244,146,128,189,87,131,1,77,36,144,63,131,251,166,63,106,95,210,24,130,103,186,98,110,62,10,184,40,56,149,19,160,236,199,27,68,186,173,84,63,228,203,227,159,109,179,18,40,237,218,164,140,52,65,188,103,203,155,171,65,51,197,97,111,213,118,158,212,22,100,181,181,232,255,241,162,158,236,29,127,18,40,142,143,176,241,144,217,234,195,62,156,10,203,134,73,105,103,243,131,158,83,34,173,51]
+  </span>
+</div>
+
+<script type="text/javascript">
+  const jekyllCrypto = document.querySelectorAll('.jekyll-crypto');
+  const textEncoder = new TextEncoder();
+  const textDecoder = new TextDecoder();
+  const parseBytes = (bytesString) => Uint8Array.from(JSON.parse(bytesString));
+
+  jekyllCrypto.forEach(container => {
+    container.querySelector('form').addEventListener('submit', event => {
+      event.stopPropagation();
+      event.preventDefault();
+
+      const password = container.querySelector('input[name=password]').value;
+      const salt = parseBytes(container.dataset.salt);
+      const iv = parseBytes(container.dataset.iv);
+      const iterations = parseInt(container.dataset.iterations);
+      const authData = parseBytes(container.dataset.authData);
+      const cipherText = parseBytes(container.querySelector('.ciphertext').innerText);
+
+      window.crypto.subtle.importKey(
+        "raw", 
+        textEncoder.encode(password), 
+        { name: "PBKDF2" }, 
+        false, 
+        [ "deriveBits", "deriveKey" ]
+      ).then(keyMaterial => {
+        window.crypto.subtle.deriveKey(
+          { "name": "PBKDF2", salt: salt, "iterations": iterations, "hash": "SHA-256" },
+          keyMaterial,
+          { "name": "AES-GCM", "length": 256 },
+          false,
+          [ "encrypt", "decrypt" ]
+        ).then(derivedKey => {
+          window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv, additionalData: authData, tagLength: 128 },
+            derivedKey,
+            cipherText
+          ).then(decrypted => container.innerHTML = textDecoder.decode(decrypted));
+        });
+      });
+    });
+  });
+</script>
